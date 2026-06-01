@@ -7,6 +7,7 @@ import { isSectionName, nextDetailsMode, parseDetailsMode, SECTION_NAMES } from 
 import type {
   ConfigGetValueResponse,
   ConfigSetResponse,
+  SessionCompressResponse,
   SessionSaveResponse,
   SessionStatusResponse,
   SessionSteerResponse,
@@ -258,9 +259,35 @@ export const coreCommands: SlashCommand[] = [
   },
 
   {
-    help: 'toggle compact transcript',
+    help: 'compact conversation context (no args) or toggle compact display (on|off|toggle)',
     name: 'compact',
     run: (arg, ctx) => {
+      const trimmed = arg.trim()
+
+      // ── No args: trigger actual conversation compression (Claude Code behavior) ──
+      if (!trimmed) {
+        if (!ctx.sid) {
+          return ctx.transcript.sys('no active session to compact')
+        }
+        ctx.transcript.sys('Compacting conversation…')
+        ctx.gateway
+          .rpc<Record<string, unknown>>('session.compress', { session_id: ctx.sid })
+          .then(r => {
+            if (r && (r as { removed?: number }).removed != null && (r as { removed: number }).removed > 0) {
+              const res = r as { removed: number; before_tokens?: number; after_tokens?: number }
+              ctx.transcript.sys(
+                `Compacted: ${res.removed} messages removed` +
+                  (res.before_tokens != null ? ` · ${res.before_tokens.toLocaleString()} → ${(res.after_tokens ?? 0).toLocaleString()} tokens` : '')
+              )
+            } else if (r && (r as { removed?: number }).removed === 0) {
+              ctx.transcript.sys('Context is within budget — no compaction needed')
+            }
+          })
+          .catch(() => ctx.transcript.sys('compaction failed'))
+        return
+      }
+
+      // ── Explicit on/off/toggle: toggle compact display mode ──
       const next = flagFromArg(arg, ctx.ui.compact)
 
       if (next === null) {
@@ -270,7 +297,7 @@ export const coreCommands: SlashCommand[] = [
       patchUiState({ compact: next })
       ctx.gateway.rpc<ConfigSetResponse>('config.set', { key: 'compact', value: next ? 'on' : 'off' }).catch(() => {})
 
-      queueMicrotask(() => ctx.transcript.sys(`compact ${next ? 'on' : 'off'}`))
+      queueMicrotask(() => ctx.transcript.sys(`compact display ${next ? 'on' : 'off'}`))
     }
   },
 

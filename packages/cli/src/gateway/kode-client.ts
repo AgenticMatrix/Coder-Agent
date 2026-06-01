@@ -37,6 +37,7 @@ import {
   getCheckpointManager,
 } from '../services/session-service.js'
 import type { SessionManager } from '@kode/core'
+import { Compactor } from '@kode/core'
 
 const execFileAsync = promisify(execFile)
 
@@ -343,12 +344,82 @@ export class KodeGatewayClient extends EventEmitter implements IGatewayClient {
         case 'session.close':
         case 'session.delete':
         case 'session.undo':
-        case 'session.compress':
         case 'session.branch':
         case 'session.steer':
         case 'session.status':
         case 'session.usage':
           return null as unknown as T
+
+        case 'session.compress': {
+          const sessionId = (params?.session_id as string) || this.gatewaySessionId
+          if (!sessionId) {
+            return { removed: 0, after_messages: 0, before_messages: 0 } as unknown as T
+          }
+
+          const session = getSessionManager().get(sessionId)
+          if (!session || session.messages.length === 0) {
+            return { removed: 0, after_messages: 0, before_messages: 0 } as unknown as T
+          }
+
+          const beforeMessages = session.messages.length
+
+          // Publish "Compressing conversation…" via the compact status event
+          this.publish({
+            type: 'status.update',
+            payload: { text: 'Compressing conversation…', kind: 'info' },
+          } as GatewayEvent)
+
+          // Use the Compactor to compact the session messages
+          const compactor = new Compactor({
+            summarizeEnabled: false, // use snip-only for CLI mode
+          })
+
+          // Estimate tokens and determine if compaction is actually needed
+          const contextBudget = 180_000
+          const budget = compactor.computeBudget(session.messages, contextBudget)
+
+          if (!compactor.needsCompaction(session.messages, contextBudget)) {
+            // Publish completion
+            this.publish({
+              type: 'status.update',
+              payload: { text: 'Context is within budget — no compaction needed', kind: 'info' },
+            } as GatewayEvent)
+            return {
+              removed: 0,
+              before_messages: beforeMessages,
+              after_messages: beforeMessages,
+              before_tokens: budget.current,
+              after_tokens: budget.current,
+            } as unknown as T
+          }
+
+          try {
+            const result = await compactor.compact(session.messages, contextBudget)
+
+            // Replace session messages with compacted ones
+            session.messages = result.messages
+
+            // Publish completion with stats
+            this.publish({
+              type: 'status.update',
+              payload: {
+                text: `Compacted: ${result.messagesRemoved} messages removed, ${result.beforeTokens.toLocaleString()} → ${result.afterTokens.toLocaleString()} tokens`,
+                kind: 'info',
+              },
+            } as GatewayEvent)
+
+            return {
+              removed: result.messagesRemoved,
+              before_messages: beforeMessages,
+              after_messages: result.messages.length,
+              before_tokens: result.beforeTokens,
+              after_tokens: result.afterTokens,
+              summary: result.summary ? { note: result.summary } : undefined,
+            } as unknown as T
+          } catch {
+            return { removed: 0, after_messages: beforeMessages, before_messages: beforeMessages } as unknown as T
+          }
+        }
 
         // ── Config ────────────────────────────────────────────
         case 'config.full': {
@@ -419,9 +490,17 @@ export class KodeGatewayClient extends EventEmitter implements IGatewayClient {
         }
 
         case 'config.mtime':
-        case 'config.get_value':
-        case 'config.set':
-          return null as unknown as T
+          return { mtime: Date.now() } as unknown as T
+        case 'config.get_value': {
+          const gkey = (params?.key as string) ?? ''
+          const settings3 = loadClaudeSettings()
+          const env3 = settings3.env ?? {}
+          return { value: env3[gkey] ?? '' } as unknown as T
+        }
+        case 'config.set': {
+          const value = (params?.value as string) ?? ''
+          return { value } as unknown as T
+        }
 
         // ── Commands ───────────────────────────────────────────
         case 'commands.catalog':

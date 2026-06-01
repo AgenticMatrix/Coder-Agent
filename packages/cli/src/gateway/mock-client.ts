@@ -61,12 +61,25 @@ export class MockGatewayClient extends EventEmitter implements IGatewayClient {
       case 'session.status':
         return { busy: false, model: MOCK_MODEL, turn_count: 0 } as unknown as T
 
+      case 'session.compress': {
+        // Mock: simulate a compaction removing ~half the messages
+        const removed = 4
+        return {
+          removed,
+          before_messages: 10,
+          after_messages: 6,
+          before_tokens: 5000,
+          after_tokens: 3000,
+          summary: { headline: `Compacted ${removed} messages (mock, snip)` },
+          usage: { total: 2000 },
+        } as unknown as T
+      }
+
       case 'session.title':
       case 'session.save':
       case 'session.close':
       case 'session.delete':
       case 'session.undo':
-      case 'session.compress':
       case 'session.branch':
       case 'session.activate':
       case 'session.interrupt':
@@ -100,11 +113,15 @@ export class MockGatewayClient extends EventEmitter implements IGatewayClient {
       case 'config.mtime':
         return 0 as unknown as T
 
-      case 'config.get_value':
-        return null as unknown as T
+      case 'config.get_value': {
+        const gkey = (params?.key as string) ?? ''
+        return { value: gkey ? '' : '' } as unknown as T
+      }
 
-      case 'config.set':
-        return null as unknown as T
+      case 'config.set': {
+        const val = (params?.value as string) ?? ''
+        return { value: val } as unknown as T
+      }
 
       case 'commands.catalog':
         return {
