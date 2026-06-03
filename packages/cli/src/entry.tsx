@@ -635,6 +635,8 @@ if (cliArgs.setup || process.argv.includes('setup')) {
       });
     });
     settings.theme = theme;
+    // Apply immediately for the current TUI session
+    process.env.CODER_TUI_THEME = theme;
     console.log(`  Theme: ${theme}\n`);
     rl.close();
   }
@@ -765,6 +767,23 @@ if (process.env.CODER_HEAPDUMP_ON_START === '1') {
 }
 
 process.on('beforeExit', () => stopMemoryMonitor())
+
+// Apply user's theme preference from settings.json before TUI initializes.
+// This overrides terminal auto-detection (detectLightMode) when the user
+// has explicitly chosen a theme via `coder setup` or `coder --model`.
+if (!process.env.CODER_TUI_THEME) {
+  try {
+    const settingsTheme = JSON.parse(
+      (await import('node:fs')).readFileSync(
+        (await import('node:path')).join((await import('node:os')).homedir(), '.coder', 'settings.json'),
+        'utf-8',
+      )
+    )?.theme
+    if (settingsTheme === 'light' || settingsTheme === 'dark') {
+      process.env.CODER_TUI_THEME = settingsTheme
+    }
+  } catch {}
+}
 
 const [ink, { App }, { logFrameEvent }, { trackFrame }] = await Promise.all([
   import('@coder/tui'),
