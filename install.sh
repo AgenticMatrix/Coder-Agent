@@ -10,7 +10,7 @@
 #   ./install.sh --dev
 #
 # This script:
-#   1. Checks Node.js >= 18
+#   1. Checks Node.js >= 22
 #   2. Installs coder-agent (npm registry or local link)
 #   3. Creates ~/.coder configuration directory
 #   4. Optionally sets up API keys
@@ -39,7 +39,7 @@ echo ""
 # ---------------------------------------------------------------------------
 # 1. Check Node.js
 # ---------------------------------------------------------------------------
-NODE_MIN_VERSION=18
+NODE_MIN_VERSION=22
 
 if ! command -v node &> /dev/null; then
   echo -e "${RED}ERROR: Node.js is not installed.${NC}"
@@ -60,9 +60,70 @@ NODE_MAJOR=$(echo "$NODE_VERSION" | cut -d. -f1)
 echo -e "Node.js version: ${GREEN}v${NODE_VERSION}${NC}"
 
 if [ "$NODE_MAJOR" -lt "$NODE_MIN_VERSION" ]; then
-  echo -e "${YELLOW}WARNING: Node.js v${NODE_MAJOR} detected. Coder Agent recommends v${NODE_MIN_VERSION}+.${NC}"
-  echo "Some features may not work correctly."
+  echo -e "${YELLOW}Node.js v${NODE_MAJOR} detected. Coder Agent requires >= ${NODE_MIN_VERSION}.${NC}"
   echo ""
+
+  # Try to auto-install Node.js 22
+  AUTO_INSTALLED=false
+
+  # Option 1: fnm (fast, cross-platform)
+  if ! $AUTO_INSTALLED && command -v fnm &> /dev/null; then
+    echo -e "${CYAN}fnm detected. Installing Node.js 22...${NC}"
+    fnm install 22 && fnm use 22 && AUTO_INSTALLED=true
+  fi
+
+  # Option 2: nvm
+  if ! $AUTO_INSTALLED && [ -s "$HOME/.nvm/nvm.sh" ]; then
+    echo -e "${CYAN}nvm detected. Installing Node.js 22...${NC}"
+    . "$HOME/.nvm/nvm.sh" && nvm install 22 && nvm use 22 && AUTO_INSTALLED=true
+  fi
+
+  # Option 3: Try to install fnm if it is not available
+  if ! $AUTO_INSTALLED; then
+    echo -e "${CYAN}No Node.js version manager found. Attempting to install fnm...${NC}"
+    if command -v curl &> /dev/null; then
+      curl -fsSL https://fnm.vercel.app/install | bash
+      # Source fnm for current session
+      FNM_PATH="$HOME/.local/share/fnm"
+      [ -d "$HOME/.fnm" ] && FNM_PATH="$HOME/.fnm"
+      if [ -f "$FNM_PATH/fnm" ]; then
+        export PATH="$FNM_PATH:$PATH"
+        eval "$(fnm env)"
+        fnm install 22 && fnm use 22 && AUTO_INSTALLED=true
+      fi
+    fi
+  fi
+
+  if $AUTO_INSTALLED; then
+    NODE_VERSION=$(node -v | sed "s/v//")
+    NODE_MAJOR=$(echo "$NODE_VERSION" | cut -d. -f1)
+    echo -e "${GREEN}✅ Node.js upgraded to v${NODE_VERSION}${NC}"
+    echo ""
+  else
+    echo -e "${RED}ERROR: Could not automatically install Node.js >= ${NODE_MIN_VERSION}.${NC}"
+    echo ""
+    echo "Please install Node.js 22+ manually:"
+    echo "  - fnm:  curl -fsSL https://fnm.vercel.app/install | bash"
+    echo "  - nvm:  curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.1/install.sh | bash"
+    echo "  - brew: brew install node@22"
+    echo "  - Official: https://nodejs.org/"
+    exit 1
+  fi
+fi
+
+# Check npm version
+NPM_MIN_VERSION=10
+
+if command -v npm &> /dev/null; then
+  NPM_VERSION=$(npm -v)
+  NPM_MAJOR=$(echo "$NPM_VERSION" | cut -d. -f1)
+  echo -e "npm version: ${GREEN}v${NPM_VERSION}${NC}"
+
+  if [ "$NPM_MAJOR" -lt "$NPM_MIN_VERSION" ]; then
+    echo -e "${YELLOW}WARNING: npm v${NPM_MAJOR} detected. npm >= ${NPM_MIN_VERSION} recommended.${NC}"
+    echo "You can upgrade npm with: npm install -g npm@latest"
+    echo ""
+  fi
 fi
 
 # ---------------------------------------------------------------------------
@@ -97,22 +158,37 @@ if $LOCAL_INSTALL; then
   echo -e "Repo directory: ${GREEN}${REPO_DIR}${NC}"
   echo ""
 
-  # Install dependencies
-  if command -v pnpm &> /dev/null; then
-    echo -e "${CYAN}Installing dependencies with pnpm...${NC}"
-    (cd "${REPO_DIR}" && pnpm install)
-  elif command -v npm &> /dev/null; then
-    echo -e "${CYAN}Installing dependencies with npm...${NC}"
-    (cd "${REPO_DIR}" && npm install)
-  else
-    echo -e "${RED}ERROR: Neither pnpm nor npm found.${NC}"
-    exit 1
+  # Check for pnpm (required for this monorepo)
+  if ! command -v pnpm &> /dev/null; then
+    echo -e "${YELLOW}pnpm is required but not found.${NC}"
+    echo ""
+    echo "This project uses pnpm workspaces — npm is not supported."
+
+    # Try to auto-install pnpm via npm or corepack
+    if command -v npm &> /dev/null; then
+      echo -e "${CYAN}Installing pnpm via npm...${NC}"
+      npm install -g pnpm 2>/dev/null || true
+    elif command -v corepack &> /dev/null; then
+      echo -e "${CYAN}Installing pnpm via corepack...${NC}"
+      corepack enable pnpm 2>/dev/null || true
+      corepack prepare pnpm@latest --activate 2>/dev/null || true
+    fi
+
+    if ! command -v pnpm &> /dev/null; then
+      echo -e "${RED}ERROR: Could not install pnpm automatically.${NC}"
+      echo "Install it manually: npm install -g pnpm"
+      exit 1
+    fi
+    echo -e "${GREEN}✅ pnpm installed${NC}"
   fi
+
+  echo -e "${CYAN}Installing dependencies with pnpm...${NC}"
+  (cd "${REPO_DIR}" && pnpm install)
 
   # Build
   echo ""
   echo -e "${CYAN}Building coder-agent...${NC}"
-  (cd "${REPO_DIR}" && pnpm build 2>/dev/null || npm run build 2>/dev/null || true)
+  (cd "${REPO_DIR}" && pnpm build)
 
   # Link CLI globally so 'coder' command is available
   echo ""
@@ -146,14 +222,60 @@ if command -v coder &> /dev/null; then
   CODER_VERSION=$(coder --version 2>/dev/null || echo "unknown")
   echo -e "${GREEN}✅ coder command available (${CODER_VERSION})${NC}"
 else
-  echo -e "${YELLOW}⚠️  coder command not on PATH yet.${NC}"
-  echo ""
-  echo "Restart your terminal or run:"
-  echo "  source ~/.zshrc   # for zsh"
-  echo "  source ~/.bashrc  # for bash"
-  echo ""
-  echo "Or add this alias manually:"
-  echo "  alias coder=\"node ${REPO_DIR:-$PWD}/packages/cli/dist/entry.js\""
+  echo -e "${YELLOW}⚠️  coder command not on PATH yet. Configuring PATH automatically...${NC}"
+
+  # Detect shell
+  SHELL_NAME=$(basename "$SHELL" 2>/dev/null || echo "bash")
+
+  # Find the global npm bin directory
+  NPM_BIN_DIR=$(npm bin -g 2>/dev/null || echo "")
+  if [ -z "$NPM_BIN_DIR" ]; then
+    NPM_PREFIX=$(npm config get prefix 2>/dev/null || echo "")
+    if [ -n "$NPM_PREFIX" ]; then
+      NPM_BIN_DIR="${NPM_PREFIX}/bin"
+    fi
+  fi
+
+  # Add npm global bin to PATH if not already there
+  if [ -n "$NPM_BIN_DIR" ] && ! echo "$PATH" | tr ':' '\n' | grep -qxF "$NPM_BIN_DIR"; then
+    case "$SHELL_NAME" in
+      zsh)
+        RC_FILE="$HOME/.zshrc"
+        ;;
+      bash)
+        if [ -f "$HOME/.bash_profile" ]; then
+          RC_FILE="$HOME/.bash_profile"
+        else
+          RC_FILE="$HOME/.bashrc"
+        fi
+        ;;
+      fish)
+        RC_FILE="$HOME/.config/fish/config.fish"
+        mkdir -p "$(dirname "$RC_FILE")"
+        ;;
+      *)
+        RC_FILE="$HOME/.profile"
+        ;;
+    esac
+
+    echo "" >> "$RC_FILE"
+    echo "# Added by Coder Agent installer" >> "$RC_FILE"
+    echo "export PATH=\"${NPM_BIN_DIR}:\$PATH\"" >> "$RC_FILE"
+
+    # Also export for current session
+    export PATH="${NPM_BIN_DIR}:$PATH"
+
+    echo -e "${GREEN}✅ Added ${NPM_BIN_DIR} to PATH in ${RC_FILE}${NC}"
+    echo ""
+    echo "Run this to apply immediately:"
+    echo "  source ${RC_FILE}"
+
+    # Re-verify after PATH update
+    if command -v coder &> /dev/null; then
+      CODER_VERSION=$(coder --version 2>/dev/null || echo "unknown")
+      echo -e "${GREEN}✅ coder command available (${CODER_VERSION})${NC}"
+    fi
+  fi
 fi
 
 # ---------------------------------------------------------------------------
@@ -194,7 +316,7 @@ fi
 # ---------------------------------------------------------------------------
 echo ""
 echo -e "${GREEN}╔══════════════════════════════════════════════════╗${NC}"
-echo -e "${GREEN}║  Coder Agent installation complete!               ║${NC}"
+echo -e "${GREEN}║  Coder Agent installation complete!              ║${NC}"
 echo -e "${GREEN}╚══════════════════════════════════════════════════╝${NC}"
 echo ""
 echo -e "${CYAN}Quick Start:${NC}"
