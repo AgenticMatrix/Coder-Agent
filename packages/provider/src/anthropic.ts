@@ -7,6 +7,7 @@
 
 import Anthropic from '@anthropic-ai/sdk';
 import type { MessageParam, ContentBlockParam, TextBlockParam, Tool } from '@anthropic-ai/sdk/resources/messages.mjs';
+import { ProxyAgent } from 'undici';
 
 import type { Message } from '@coder/shared';
 import type { ToolDefinition } from '@coder/shared';
@@ -35,11 +36,17 @@ export class AnthropicProvider implements Provider {
 
   constructor(config: ProviderConfig) {
     this.config = config;
+    const fetchOptions: Record<string, unknown> = {};
+    if (config.proxy) {
+      const proxyAgent = new ProxyAgent({ uri: config.proxy });
+      (fetchOptions as any).dispatcher = proxyAgent;
+    }
     this.client = new Anthropic({
       apiKey: config.apiKey,
       baseURL: config.baseUrl,
       timeout: config.timeout ?? 300_000,
       maxRetries: 0, // We handle retries ourselves in withRetry()
+      ...(config.proxy ? { fetchOptions } : {}),
     });
   }
 

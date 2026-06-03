@@ -16,6 +16,7 @@
 
 import type { Message } from '@coder/shared';
 import type { ToolDefinition } from '@coder/shared';
+import { ProxyAgent } from 'undici';
 
 import type {
   Provider,
@@ -115,6 +116,7 @@ export class OpenAICompatProvider implements Provider {
   protected readonly config: ProviderConfig;
   protected readonly defaultBaseUrl: string;
   protected readonly providerName: string;
+  protected readonly proxyAgent: ProxyAgent | undefined;
 
   constructor(
     config: ProviderConfig,
@@ -124,6 +126,7 @@ export class OpenAICompatProvider implements Provider {
     this.config = config;
     this.providerName = providerName;
     this.defaultBaseUrl = defaultBaseUrl;
+    this.proxyAgent = config.proxy ? new ProxyAgent({ uri: config.proxy }) : undefined;
   }
 
   // -----------------------------------------------------------------------
@@ -266,12 +269,16 @@ export class OpenAICompatProvider implements Provider {
     const reasoningState = { active: false };  // Shared mutable ref for processSSEChunk
 
     try {
-      const response = await fetch(url, {
+      const fetchInit: Record<string, unknown> = {
         method: 'POST',
         headers: this.buildRequestHeaders(),
         body: JSON.stringify(requestBody),
         signal,
-      });
+      };
+      if (this.proxyAgent) {
+        fetchInit.dispatcher = this.proxyAgent;
+      }
+      const response = await fetch(url, fetchInit as RequestInit);
 
       if (!response.ok) {
         const errorBody = await response.text().catch(() => '');

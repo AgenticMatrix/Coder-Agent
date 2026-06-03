@@ -32,6 +32,7 @@ export function ModelPicker({ allowPersistGlobal = true, gw, onCancel, onSelect,
   const [customProviderSlug, setCustomProviderSlug] = useState('')
   const [customProviderUrl, setCustomProviderUrl] = useState('')
   const [customProviderKey, setCustomProviderKey] = useState('')
+  const [customProviderProxy, setCustomProviderProxy] = useState('')
   const [customProviderField, setCustomProviderField] = useState(0)
   const [customSaving, setCustomSaving] = useState(false)
   const [customError, setCustomError] = useState('')
@@ -173,7 +174,7 @@ export function ModelPicker({ allowPersistGlobal = true, gw, onCancel, onSelect,
       }
 
       if (key.return) {
-        if (customProviderField < 2) {
+        if (customProviderField < 3) {
           setCustomProviderField(f => f + 1)
         } else {
           // Save on last field
@@ -189,6 +190,7 @@ export function ModelPicker({ allowPersistGlobal = true, gw, onCancel, onSelect,
             name: slug,
             base_url: customProviderUrl.trim() || undefined,
             api_key: customProviderKey.trim() || undefined,
+            proxy: customProviderProxy.trim() || null,
             ...(sessionId ? { session_id: sessionId } : {})
           })
             .then(raw => {
@@ -205,6 +207,7 @@ export function ModelPicker({ allowPersistGlobal = true, gw, onCancel, onSelect,
               setCustomProviderSlug('')
               setCustomProviderUrl('')
               setCustomProviderKey('')
+              setCustomProviderProxy('')
               setCustomProviderField(0)
               setCustomSaving(false)
               setProviderIdx(providers.length)
@@ -221,21 +224,21 @@ export function ModelPicker({ allowPersistGlobal = true, gw, onCancel, onSelect,
       }
 
       if (key.backspace || key.delete) {
-        const setters = [setCustomProviderSlug, setCustomProviderUrl, setCustomProviderKey]
+        const setters = [setCustomProviderSlug, setCustomProviderUrl, setCustomProviderKey, setCustomProviderProxy]
         setters[customProviderField](v => v.slice(0, -1))
 
         return
       }
 
       if (ch === '') {
-        const setters = [setCustomProviderSlug, setCustomProviderUrl, setCustomProviderKey]
+        const setters = [setCustomProviderSlug, setCustomProviderUrl, setCustomProviderKey, setCustomProviderProxy]
         setters[customProviderField]('')
 
         return
       }
 
       if (ch && !key.ctrl && !key.meta) {
-        const setters = [setCustomProviderSlug, setCustomProviderUrl, setCustomProviderKey]
+        const setters = [setCustomProviderSlug, setCustomProviderUrl, setCustomProviderKey, setCustomProviderProxy]
         setters[customProviderField](v => v + ch)
       }
 
@@ -502,6 +505,7 @@ export function ModelPicker({ allowPersistGlobal = true, gw, onCancel, onSelect,
           setCustomProviderSlug('')
           setCustomProviderUrl('')
           setCustomProviderKey('')
+          setCustomProviderProxy('')
           setCustomProviderField(0)
           setCustomSaving(false)
           setCustomError('')
@@ -743,9 +747,9 @@ export function ModelPicker({ allowPersistGlobal = true, gw, onCancel, onSelect,
 
   // ── Custom provider creation stage ────────────────────────────────────
   if (stage === 'custom_provider') {
-    const fieldLabels = ['Provider slug', 'Base URL (optional)', 'API Key (optional)']
-    const fieldValues = [customProviderSlug, customProviderUrl, customProviderKey]
-    const fieldMasked = [false, false, true]
+    const fieldLabels = ['Provider slug', 'Base URL (optional)', 'API Key (optional)', 'Proxy URL (optional)']
+    const fieldValues = [customProviderSlug, customProviderUrl, customProviderKey, customProviderProxy]
+    const fieldMasked = [false, false, true, false]
 
     return (
       <Box flexDirection="column" width={width}>
@@ -804,7 +808,7 @@ export function ModelPicker({ allowPersistGlobal = true, gw, onCancel, onSelect,
         )}
 
         <OverlayHint t={t}>
-          {customProviderField < 2
+          {customProviderField < 3
             ? 'Enter next field · Ctrl+U clear field · Esc back'
             : 'Enter save · Ctrl+U clear field · Esc back'}
         </OverlayHint>

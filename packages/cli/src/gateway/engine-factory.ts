@@ -83,6 +83,8 @@ export interface EngineFactoryOptions {
   apiKey?: string;
   /** Base URL override for the provider */
   baseUrl?: string;
+  /** HTTP/HTTPS proxy URL for the provider */
+  proxy?: string;
   /** Model identifier (default: from env or 'claude-sonnet-4-6') */
   model?: string;
   /** Provider name: "anthropic" | "openai" | "deepseek" | "auto" (default: "anthropic") */
@@ -240,6 +242,7 @@ export function createQueryEngine(
   const cwd = opts.cwd ?? process.cwd();
   const apiKey = opts.apiKey ?? process.env.CODER_API_KEY ?? '';
   const baseUrl = opts.baseUrl ?? process.env.CODER_BASE_URL;
+  const proxy = opts.proxy ?? process.env.CODER_PROXY;
   const model = (opts.model && opts.model !== 'claude-sonnet-4-6') ? opts.model : process.env.CODER_MODEL ?? opts.model ?? 'claude-sonnet-4-6';
   const providerName = opts.providerName ?? (model.toLowerCase().includes('deepseek') ? 'deepseek' : process.env.CODER_PROVIDER ?? 'anthropic');
 
@@ -258,6 +261,7 @@ export function createQueryEngine(
   const providerConfig: ProviderConfig = {
     apiKey,
     baseUrl: baseUrl || undefined,
+    proxy: proxy || undefined,
     timeout: 300_000, // 5 minutes
     maxRetries: 3,
   };

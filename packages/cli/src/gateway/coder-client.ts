@@ -49,6 +49,7 @@ interface ModelEntry {
   model: string[]        // List of model IDs available for this provider
   base_url?: string      // Provider endpoint URL
   auth_token_env?: string // API key / auth token
+  proxy?: string         // HTTP/HTTPS proxy URL for this provider (e.g. "http://127.0.0.1:7890")
   provider?: string      // e.g. "anthropic", "deepseek", "openai"
   price?: {
     input: number
@@ -97,6 +98,7 @@ function resolveModelConfig(settings: ClaudeSettings, fallbackModel: string): {
   model: string
   baseUrl?: string
   apiKey?: string
+  proxy?: string
   name: string
   provider: string
 } {
@@ -118,6 +120,7 @@ function resolveModelConfig(settings: ClaudeSettings, fallbackModel: string): {
       model: selectedModel,
       baseUrl: entry.base_url,
       apiKey: entry.auth_token_env,
+      proxy: entry.proxy,
       name: selectedModel,
       provider: entry.provider ?? inferProvider(selectedModel),
     }
@@ -224,7 +227,7 @@ export class CoderGatewayClient extends EventEmitter implements IGatewayClient {
   private thinkingBudget: number
 
   // ── Model config ────────────────────────────────────────────────────
-  private modelConfig: { model: string; baseUrl?: string; apiKey?: string; name: string; provider: string } | null = null
+  private modelConfig: { model: string; baseUrl?: string; apiKey?: string; proxy?: string; name: string; provider: string } | null = null
 
   // ── Session fork config ─────────────────────────────────────────────
   private forkSessionId?: string
@@ -246,7 +249,7 @@ export class CoderGatewayClient extends EventEmitter implements IGatewayClient {
     // CODER_MODEL env var — highest-priority model override.
     // Check before resolveModelConfig so the env var wins over settings.json.
     const coderModel = process.env.CODER_MODEL
-    let resolved: { model: string; baseUrl?: string; apiKey?: string; name: string; provider: string }
+    let resolved: { model: string; baseUrl?: string; apiKey?: string; proxy?: string; name: string; provider: string }
     if (coderModel) {
       // Helper: resolve from a model_list entry
       const resolveEntry = (entry: ModelEntry, preferredModel?: string) => {
@@ -257,6 +260,7 @@ export class CoderGatewayClient extends EventEmitter implements IGatewayClient {
           model: selectedModel,
           baseUrl: entry.base_url,
           apiKey: entry.auth_token_env,
+          proxy: entry.proxy,
           name: selectedModel,
           provider: entry.provider ?? inferProvider(selectedModel),
         }
@@ -829,6 +833,11 @@ export class CoderGatewayClient extends EventEmitter implements IGatewayClient {
       env.CODER_BASE_URL ??
       process.env.CODER_BASE_URL
 
+    const proxy =
+      (modelCfg as any)?.proxy ??
+      env.CODER_PROXY ??
+      process.env.CODER_PROXY
+
     // Check CODER_COORDINATOR_MODE env var (set by entry.tsx or manually)
     const coordinatorMode =
       this.coordinatorMode ||
@@ -845,6 +854,7 @@ export class CoderGatewayClient extends EventEmitter implements IGatewayClient {
       cwd: process.cwd(),
       apiKey,
       baseUrl: baseUrl || undefined,
+      proxy: proxy || undefined,
       model: this.model,
       providerName: modelCfg?.provider,
       maxTurns: 100,

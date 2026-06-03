@@ -357,6 +357,7 @@ export interface ModelOptionProvider {
   key_env?: string
   models?: string[]
   name: string
+  proxy?: string | null
   slug: string
   total_models?: number
   warning?: string

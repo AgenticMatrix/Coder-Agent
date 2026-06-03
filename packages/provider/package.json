@@ -19,7 +19,8 @@
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.99.0",
-    "@coder/shared": "workspace:*"
+    "@coder/shared": "workspace:*",
+    "undici": "^8.3.0"
   },
   "devDependencies": {
     "typescript": "^5.8.0",

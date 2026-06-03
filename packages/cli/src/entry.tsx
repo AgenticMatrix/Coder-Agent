@@ -219,7 +219,7 @@ if (cliArgs.model || process.argv.includes('--model')) {
     settings = JSON.parse(readFileSync(settingsPath, 'utf-8'));
   } catch {}
 
-  const modelList: Array<{model: string[]; base_url?: string; auth_token_env?: string; provider: string}> =
+  const modelList: Array<{model: string[]; base_url?: string; auth_token_env?: string; provider: string; proxy?: string | null}> =
     settings.model_list ?? [];
 
   if (modelList.length === 0) {
@@ -258,6 +258,7 @@ if (cliArgs.model || process.argv.includes('--model')) {
     settings.env = settings.env ?? {};
     settings.env.CODER_MODEL = modelName;
     if (providerEntry.base_url) settings.env.CODER_BASE_URL = providerEntry.base_url;
+    if (providerEntry.proxy) settings.env.CODER_PROXY = providerEntry.proxy;
     if (providerEntry.auth_token_env) settings.env.CODER_AUTH_TOKEN = providerEntry.auth_token_env;
 
     // Smart merge into model_list (match by provider)
@@ -386,12 +387,14 @@ if (cliArgs.model || process.argv.includes('--model')) {
     const name = await new Promise<string>(resolve => rl.question('Enter provider name (e.g. myprovider): ', resolve));
     const url = await new Promise<string>(resolve => rl.question('Enter base URL (e.g. https://api.example.com/v1): ', resolve));
     const key = await new Promise<string>(resolve => rl.question('Enter API key (or press Enter to skip): ', resolve));
+    const proxy = await new Promise<string>(resolve => rl.question('Enter proxy URL (e.g. http://127.0.0.1:7890, or press Enter to skip): ', resolve));
     rl.close();
     selectedProvider = {
       provider: name.trim(),
       model: [],
       base_url: url.trim() || undefined,
       auth_token_env: key.trim() || `YOUR_${name.trim().toUpperCase()}_API_KEY`,
+      proxy: proxy.trim() || null,
       price: { input: 0, output: 0, currency: 'USD', unit: '1M tokens' }
     };
     modelList.push(selectedProvider);
@@ -478,6 +481,25 @@ if (cliArgs.model || process.argv.includes('--model')) {
       console.log('  Token updated.\n');
     } else {
       console.log('  Keeping current token.\n');
+    }
+  }
+
+  // Proxy
+  {
+    const currentProxy = selectedProvider.proxy ?? 'None (no proxy)';
+    console.log(`Proxy: ${currentProxy}`);
+    const readline = await import('node:readline');
+    const rl = readline.createInterface({ input: stdin, output: stdout });
+    const newProxy = await new Promise<string>(resolve => rl.question('Press Enter to keep, or type a proxy URL (or "none" to disable): ', resolve));
+    rl.close();
+    if (newProxy.trim().toLowerCase() === 'none') {
+      selectedProvider.proxy = undefined;
+      console.log('  Proxy disabled.\n');
+    } else if (newProxy.trim()) {
+      selectedProvider.proxy = newProxy.trim();
+      console.log('  Proxy updated.\n');
+    } else {
+      console.log('  Keeping current proxy.\n');
     }
   }
 

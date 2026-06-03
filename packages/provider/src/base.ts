@@ -18,6 +18,8 @@ export interface ProviderConfig {
   apiKey: string;
   /** Base URL override (for proxies / alternative endpoints) */
   baseUrl?: string;
+  /** HTTP/HTTPS proxy URL (e.g. "http://127.0.0.1:7890") */
+  proxy?: string;
   /** Request timeout in milliseconds (default: 300_000 = 5 min) */
   timeout?: number;
   /** Maximum retry attempts for retryable errors (default: 3) */

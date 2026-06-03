@@ -5,6 +5,7 @@
     {
       "model": ["deepseek-v4-pro", "deepseek-v4-flash", "deepseek-chat", "deepseek-reasoner"],
       "base_url": "https://api.deepseek.com/anthropic",
+      "proxy": null,
       "auth_token_env": "YOUR_DEEPSEEK_API_KEY",
       "provider": "deepseek",
       "price": {
