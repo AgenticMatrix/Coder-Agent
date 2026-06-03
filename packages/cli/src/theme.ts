@@ -269,7 +269,7 @@ const DARK_FILETREE: FileTreeColors = {
   file: '#C0C0C0',
   gitAdded: '#4caf50',
   gitModified: '#ffa726',
-  gitDeleted: '#ef5350',
+  gitDeleted: '#ff5252',
   gitUntracked: '#9e9e9e',
 };
 
@@ -290,7 +290,7 @@ export const DARK_THEME: Theme = {
 
     label: '#F0C040',
     ok: '#4caf50',
-    error: '#ef5350',
+    error: '#ff5252',
     warn: '#ffa726',
 
     prompt: '#FFF8DC',
@@ -310,8 +310,8 @@ export const DARK_THEME: Theme = {
 
     diffAdded: 'rgb(220,255,220)',
     diffRemoved: 'rgb(255,220,220)',
-    diffAddedWord: 'rgb(36,138,61)',
-    diffRemovedWord: 'rgb(207,34,46)',
+    diffAddedWord: 'rgb(0,110,40)',
+    diffRemovedWord: 'rgb(175,25,35)',
     shellDollar: '#64B5F6'
   },
 
