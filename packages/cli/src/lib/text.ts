@@ -283,7 +283,7 @@ export const buildToolTrailLine = (
 const verboseToolBlock = (label: string, text?: string) => {
   const body = (text ?? '').trim()
 
-  return body ? `${label}:\n${boundedLiveRenderText(body)}` : ''
+  return body ? `${label}: ${boundedLiveRenderText(body)}` : ''
 }
 
 export const buildVerboseToolTrailLine = (

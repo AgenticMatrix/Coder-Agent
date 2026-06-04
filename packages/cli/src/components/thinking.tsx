@@ -311,7 +311,7 @@ function Chevron({
   return (
     <Box onClick={(e: any) => onClick(!!e?.shiftKey || !!e?.ctrlKey)}>
       <Text color={color}>
-        {title}
+        <Text bold>{title}</Text>
         {typeof count === 'number' ? ` (${count})` : ''}
         {suffix ? (
           <Text color={t.color.statusFg} dim>
@@ -872,7 +872,7 @@ export const ToolTrail = memo(function ToolTrail({
 
       if (parsed.detail) {
         pushDetail({
-          color: parsed.mark === '✗' ? t.color.error : t.color.text,
+          color: parsed.mark === '✗' ? t.color.error : t.color.muted,
           content: parsed.detail,
           dimColor: parsed.mark !== '✗',
           key: `tr-${i}-d`
@@ -1247,51 +1247,29 @@ export const ToolTrail = memo(function ToolTrail({
                   const toolName = toolCallMatch[1]!
                   const toolArg = toolCallMatch[2]!
                   const rest = text.slice(nl + 1)
-                  const restNl = rest.indexOf('\n')
-                  const resultLabel = restNl > 0 && rest.startsWith('Result:') ? 'Result:' : ''
-                  const resultBody = resultLabel ? rest.slice(restNl + 1) : rest
                   return (
                     <Box flexDirection="column" key={detail.key}>
                       <TreeTextRow
-                        branch={resultLabel || resultBody !== rest ? 'mid' : detailBranch}
+                        branch="mid"
                         color={detail.color}
                         content={
                           <Text>
-                            <Text bold color={detail.color}>{toolName}</Text>
-                            <Text color={detail.color}>({toolArg})</Text>
+                            <Text bold color={t.color.text}>{toolName}</Text>
+                            <Text color={t.color.text}>({toolArg})</Text>
                           </Text>
                         }
                         rails={rails}
                         t={t}
                       />
-                      {resultLabel ? (
-                        <>
-                          <TreeTextRow
-                            branch="mid"
-                            color={detail.color}
-                            content="Result:"
-                            rails={rails}
-                            t={t}
-                          />
-                          <TruncatedResult
-                            {...detail}
-                            branch={detailBranch}
-                            color={t.color.muted}
-                            content={resultBody}
-                            dimColor
-                            rails={rails}
-                            t={t}
-                          />
-                        </>
-                      ) : (
-                        <TruncatedResult
-                          {...detail}
-                          branch={detailBranch}
-                          content={rest}
-                          rails={rails}
-                          t={t}
-                        />
-                      )}
+                      <TruncatedResult
+                        {...detail}
+                        branch={detailBranch}
+                        color={t.color.muted}
+                        content={rest}
+                        dimColor
+                        rails={rails}
+                        t={t}
+                      />
                     </Box>
                   )
                 }
