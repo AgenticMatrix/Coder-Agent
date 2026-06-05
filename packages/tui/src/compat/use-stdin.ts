@@ -1,13 +1,13 @@
 /**
- * useStdin compat wrapper — Phase 0
+ * useStdin compat wrapper
  *
  * Wraps ink's useStdin to add the `inputEmitter` property that CA's CLI
- * code expects. ink v7 doesn't expose the internal event emitter, so we
- * provide a standalone EventEmitter for Phase 0 compat.
+ * code expects.  Wires raw stdin data events to a standalone EventEmitter
+ * so TextInput and other CA components receive real-time input.
  */
 import { EventEmitter } from 'node:events';
 import { useStdin as inkUseStdin } from 'ink';
-import { useMemo } from 'react';
+import { useEffect, useMemo } from 'react';
 
 export interface StdinProps {
   /** The stdin stream */
@@ -22,13 +22,30 @@ export interface StdinProps {
 
 /**
  * Wraps ink's useStdin hook to provide the `inputEmitter` property
- * that CA's textInput uses for listening to raw stdin events.
- * Phase 0: provides a stub EventEmitter — full raw input passthrough
- * will be implemented in a later phase.
+ * that CA's textInput and other components use for raw stdin events.
+ *
+ * Forwards every 'data' chunk from the stdin ReadStream to the
+ * inputEmitter as an `'input'` event (string payload).
  */
 export function useStdin(): StdinProps {
   const publicProps = inkUseStdin();
   const inputEmitter = useMemo(() => new EventEmitter(), []);
+
+  // Wire stdin data events → inputEmitter so TextInput receives input
+  useEffect(() => {
+    const { stdin } = publicProps;
+    if (!stdin) return;
+
+    function onData(data: Buffer): void {
+      inputEmitter.emit('input', data.toString());
+    }
+
+    stdin.on('data', onData);
+    return () => {
+      stdin.removeListener('data', onData);
+    };
+  }, [publicProps.stdin, inputEmitter]);
+
   return {
     stdin: publicProps.stdin,
     setRawMode: publicProps.setRawMode,
