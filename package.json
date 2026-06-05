@@ -60,5 +60,10 @@
   "bugs": {
     "url": "https://github.com/AgenticMatrix/Coder-Agent/issues"
   },
-  "homepage": "https://github.com/AgenticMatrix/Coder-Agent#readme"
+  "homepage": "https://github.com/AgenticMatrix/Coder-Agent#readme",
+  "pnpm": {
+    "patchedDependencies": {
+      "ink@7.0.5": "patches/ink@7.0.5.patch"
+    }
+  }
 }

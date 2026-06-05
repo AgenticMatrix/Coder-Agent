@@ -1,21 +1,28 @@
 /**
  * useStdin compat wrapper
  *
- * Wraps ink's useStdin to add the `inputEmitter` property that CA's CLI
- * code expects.  The primary keyboard input path goes through ink v7's
- * `useInput` hook (which reads stdin via the 'readable' event in paused
- * mode).  `inputEmitter` is a compat stub used only by `useFwdDelete` for
- * forward-delete sequence detection — basic typing and key handling are
- * unaffected by this stub.
+ * Wraps ink's internal useStdinContext to expose the `inputEmitter` property
+ * that CA's CLI code expects.
  *
- * CRITICAL: Do NOT add any stdin event listener here.  Ink v7 relies on
- * the 'readable' event + stdin.read() in paused mode.  Adding a 'data'
- * listener switches the stream to flowing mode and breaks all useInput
- * hooks throughout the entire app.
+ * ## Design
+ * - Uses ink's `internal_eventEmitter` directly via `useStdinContext()`
+ *   (imported from `ink/internal` — a patched export path in ink's package.json
+ *   because `useStdinContext` is not part of ink's public API).
+ * - This is the same EventEmitter that ink's `useInput` and `usePaste` hooks
+ *   listen to internally, so forwarding input through it is safe — it does NOT
+ *   interfere with ink's stdin stream mode (paused mode via 'readable' event).
+ * - The primary keyboard input path goes through ink's `useInput` hook.
+ *   `inputEmitter` is used only by CA's `useFwdDelete` for forward-delete
+ *   sequence detection.
+ *
+ * ## Why NOT stdin.on('data')
+ * Adding a 'data' listener to stdin switches the stream from paused to flowing
+ * mode.  Ink v7 relies on the 'readable' event + stdin.read() in paused mode
+ * for its own input handling.  Flowing mode breaks all useInput hooks
+ * throughout the entire app.
  */
 import { EventEmitter } from 'node:events';
-import { useStdin as inkUseStdin } from 'ink';
-import { useMemo } from 'react';
+import { useStdinContext } from 'ink/internal';
 
 export interface StdinProps {
   /** The stdin stream */
@@ -24,27 +31,30 @@ export interface StdinProps {
   readonly setRawMode: (value: boolean) => void;
   /** Whether the current stdin supports setRawMode */
   readonly isRawModeSupported: boolean;
-  /** CA compat: event emitter for raw input events (stub — primary input via useInput) */
+  /** CA compat: ink's internal_eventEmitter — used by useFwdDelete for forward-delete detection */
   readonly inputEmitter: EventEmitter;
 }
 
 /**
- * Wraps ink's useStdin hook to provide the `inputEmitter` property.
+ * Wraps ink's useStdinContext hook to provide the `inputEmitter` property.
  *
- * `inputEmitter` is a passive stub — it is NOT wired to stdin because
- * adding any listener to stdin would conflict with ink v7's own stdin
- * handling.  Primary keyboard input flows through ink's useInput hook,
- * which our compat useInput wrapper correctly delegates to.
+ * `inputEmitter` is ink's own `internal_eventEmitter` — the same EventEmitter
+ * that ink's useInput/usePaste hooks listen to.  This ensures CA's useFwdDelete
+ * sees the same input events without interfering with ink's stdin stream mode.
  */
 export function useStdin(): StdinProps {
-  const publicProps = inkUseStdin();
-  const inputEmitter = useMemo(() => new EventEmitter(), []);
+  const {
+    stdin,
+    setRawMode,
+    isRawModeSupported,
+    internal_eventEmitter,
+  } = useStdinContext();
 
   return {
-    stdin: publicProps.stdin,
-    setRawMode: publicProps.setRawMode,
-    isRawModeSupported: publicProps.isRawModeSupported,
-    inputEmitter,
+    stdin,
+    setRawMode,
+    isRawModeSupported,
+    inputEmitter: internal_eventEmitter,
   };
 }
 
