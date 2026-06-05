@@ -6,7 +6,8 @@
     "tsBuildInfoFile": "./dist/.tsbuildinfo",
     "jsx": "react-jsx",
     "jsxImportSource": "react",
-    "noImplicitAny": false
+    "noImplicitAny": false,
+    "skipLibCheck": true
   },
   "include": ["src/**/*.ts", "src/**/*.tsx", "src/**/*.d.ts"],
   "exclude": ["node_modules", "dist", "**/*.test.ts", "**/*.test.tsx"]

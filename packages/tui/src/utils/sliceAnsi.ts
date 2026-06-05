@@ -1,7 +1,7 @@
 import { type AnsiCode, ansiCodesToString, reduceAnsiCodes, tokenize, undoAnsiCodes } from '@alcalzone/ansi-tokenize'
 
-import { lruEvict } from '../ink/lru.js'
-import { stringWidth } from '../ink/stringWidth.js'
+import { lruEvict } from '../compat/lru.js'
+import stringWidth from 'string-width'
 
 function isEndCode(code: AnsiCode): boolean {
   return code.code === code.endCode
@@ -66,6 +66,14 @@ function computeSlice(str: string, start: number, end?: number): string {
   let include = false
 
   for (const token of tokens) {
+    // v0.3.x added ControlCode — treat like ANSI (zero width, pass through)
+    if (token.type === 'control') {
+      if (include) {
+        result += token.code;
+      }
+      continue;
+    }
+
     const width = token.type === 'ansi' ? 0 : token.fullWidth ? 2 : stringWidth(token.value)
 
     if (end !== undefined && position >= end) {
