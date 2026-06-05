@@ -2,11 +2,11 @@
  * NoSelect compat stub — Phase 2
  *
  * Marks a region as non-selectable and forwards mouse events via the
- * shared MouseProvider context.  Renders children wrapped in a dimmed
- * Text element.  Full text-selection exclusion deferred to later phases.
+ * shared MouseProvider context.  Renders children in a Box wrapper.
+ * Full text-selection exclusion deferred to later phases.
  */
 import React, { useEffect, useRef } from 'react';
-import { Text } from 'ink';
+import { Box } from 'ink';
 import {
   useMouseTracker,
   createMouseHandler,
@@ -25,12 +25,12 @@ export interface NoSelectProps {
   onMouseUp?: (...args: any[]) => void;
   /** CA extension: boolean form of from="left-edge" for CLI compat */
   fromLeftEdge?: boolean;
-  /** Additional props forwarded to the underlying Text element */
+  /** Additional props forwarded to the underlying Box element */
   [key: string]: unknown;
 }
 
 /**
- * NoSelect component — renders children in a dimmed Text wrapper and
+ * NoSelect component — renders children in a Box wrapper and
  * dispatches mouse events via the MouseProvider context.
  *
  * The `from="left-edge"` marker is accepted but has no rendering effect
@@ -69,7 +69,7 @@ export function NoSelect({
   const effectiveFrom = fromLeftEdge ? 'left-edge' : from;
   void effectiveFrom; // accepted but no rendering effect in Phase 2
 
-  return <Text dimColor {...rest}>{typeof children === 'string' ? children : null}</Text>;
+  return <Box {...rest}>{children}</Box>;
 }
 
 export default NoSelect;
