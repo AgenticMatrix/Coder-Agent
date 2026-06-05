@@ -1,11 +1,17 @@
 /**
- * ScrollBox compat stub — Phase 0
+ * ScrollBox compat stub — Phase 2
  *
- * Simple Box wrapper with forwardRef. Scroll methods are no-ops.
+ * Box wrapper with forwardRef and stub scroll methods.  Mouse events
+ * (onClick) are dispatched via the shared MouseProvider context.
  * Full virtual-scrolling implementation deferred to later phases.
  */
-import React, { forwardRef } from 'react';
+import React, { forwardRef, useEffect, useRef } from 'react';
 import { Box } from 'ink';
+import {
+  useMouseTracker,
+  createMouseHandler,
+  type MouseCallbacks,
+} from './mouse-tracker.js';
 
 // ---------------------------------------------------------------------------
 // Types (compatible with the old ScrollBoxHandle / ScrollBoxProps)
@@ -44,9 +50,9 @@ export interface ScrollBoxProps {
   width?: number | string;
   height?: number | string;
   minHeight?: number | string;
-  /** CA extension: click handler (Phase 0 — no-op) */
+  /** CA extension: click handler — fires on mouse release near the press position */
   onClick?: (...args: any[]) => void;
-  /** CA extension: sticky scroll mode */
+  /** CA extension: sticky scroll mode (Phase 2: accepted but no-op) */
   stickyScroll?: boolean;
 }
 
@@ -56,7 +62,7 @@ export interface ScrollBoxProps {
 
 const ScrollBox = forwardRef<ScrollBoxHandle, ScrollBoxProps>(
   function ScrollBox({ children, onClick, stickyScroll, ..._boxProps }, ref) {
-    // Expose a stub handle — every method is a no-op for Phase 0
+    // Stub handle — methods are no-ops for Phase 2
     React.useImperativeHandle(ref, () => ({
       scrollTo: () => {},
       scrollBy: () => {},
@@ -73,6 +79,24 @@ const ScrollBox = forwardRef<ScrollBoxHandle, ScrollBoxProps>(
       subscribe: () => () => {},
       setClampBounds: () => {},
     }), []);
+
+    // Mouse event registration via the shared MouseProvider context
+    const tracker = useMouseTracker();
+    const onClickRef = useRef(onClick);
+
+    // Keep ref in sync without re-registering
+    useEffect(() => {
+      onClickRef.current = onClick;
+    });
+
+    useEffect(() => {
+      const cleanup = createMouseHandler(tracker, {
+        onClick(e) { onClickRef.current?.(e); },
+      });
+      return cleanup;
+    }, [tracker]);
+
+    void stickyScroll; // accepted but not implemented yet
 
     return (
       <Box flexDirection="column" overflow="hidden" {..._boxProps as any}>
