@@ -23,6 +23,8 @@ export interface NoSelectProps {
   onMouseDown?: (...args: any[]) => void;
   /** CA extension: mouse button release */
   onMouseUp?: (...args: any[]) => void;
+  /** CA extension: boolean form of from="left-edge" for CLI compat */
+  fromLeftEdge?: boolean;
   /** Additional props forwarded to the underlying Text element */
   [key: string]: unknown;
 }
@@ -40,6 +42,7 @@ export function NoSelect({
   onMouseDown,
   onMouseUp,
   from,
+  fromLeftEdge,
   ...rest
 }: NoSelectProps): React.ReactElement {
   // Mouse event registration via the shared MouseProvider context
@@ -62,7 +65,9 @@ export function NoSelect({
     return cleanup;
   }, [tracker]);
 
-  void from; // accepted but no rendering effect in Phase 2
+  // Map fromLeftEdge boolean to from="left-edge" for CLI compat
+  const effectiveFrom = fromLeftEdge ? 'left-edge' : from;
+  void effectiveFrom; // accepted but no rendering effect in Phase 2
 
   return <Text dimColor {...rest}>{typeof children === 'string' ? children : null}</Text>;
 }

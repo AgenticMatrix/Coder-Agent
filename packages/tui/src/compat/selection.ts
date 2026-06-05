@@ -36,8 +36,8 @@ export interface SelectionHandle {
   hasSelection(): boolean;
   getState(): SelectionState;
   subscribe(listener: () => void): () => void;
-  shiftAnchor(rows: number): void;
-  shiftSelection(rows: number): void;
+  shiftAnchor(rows: number, minRow?: number, maxRow?: number): void;
+  shiftSelection(rows: number, minRow?: number, maxRow?: number): void;
   moveFocus(direction: 'left' | 'right' | 'up' | 'down' | 'lineStart' | 'lineEnd'): void;
   captureScrolledRows(firstRow: number, lastRow: number, side: 'above' | 'below'): void;
   setSelectionBgColor(_color: string): void;
@@ -282,17 +282,23 @@ export function useSelection(): SelectionHandle {
   // Coordinate manipulation
   // -----------------------------------------------------------------------
 
-  function shiftAnchor(rows: number): void {
+  function shiftAnchor(rows: number, minRow?: number, maxRow?: number): void {
     if (state.anchorRow === undefined) return;
-    const newRow = Math.max(0, state.anchorRow + rows);
+    let newRow = state.anchorRow + rows;
+    newRow = Math.max(0, newRow);
+    if (minRow !== undefined) newRow = Math.max(minRow, newRow);
+    if (maxRow !== undefined) newRow = Math.min(maxRow, newRow);
     if (newRow === state.anchorRow) return;
     state.anchorRow = newRow;
     notify();
   }
 
-  function shiftSelection(rows: number): void {
+  function shiftSelection(rows: number, minRow?: number, maxRow?: number): void {
     if (state.focusRow === undefined) return;
-    const newRow = Math.max(0, state.focusRow + rows);
+    let newRow = state.focusRow + rows;
+    newRow = Math.max(0, newRow);
+    if (minRow !== undefined) newRow = Math.max(minRow, newRow);
+    if (maxRow !== undefined) newRow = Math.min(maxRow, newRow);
     if (newRow === state.focusRow) return;
     state.focusRow = newRow;
     notify();

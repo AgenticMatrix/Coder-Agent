@@ -54,6 +54,8 @@ export { Ansi } from './compat/ansi.js';
 export { RawAnsi } from './compat/raw-ansi.js';
 export { NoSelect } from './compat/no-select.js';
 export { AlternateScreen } from './compat/alternate-screen.js';
+export { default as ErrorBoundary } from './compat/error-boundary.js';
+export type { ErrorBoundaryProps } from './compat/error-boundary.js';
 export {
   default as ScrollBox,
   type ScrollBoxHandle,
@@ -165,6 +167,7 @@ export {
 export { isXtermJs } from './compat/terminal-detect.js';
 export {
   scrollFastPathStats,
+  resetScrollFastPathStats,
   type ScrollFastPathStats,
 } from './compat/scroll-stats.js';
 export {
