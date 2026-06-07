@@ -447,10 +447,12 @@ const ScrollBox = forwardRef<ScrollBoxHandle, ScrollBoxProps>(
         s.contentHeight = newHeight;
 
         // If sticky, auto-scroll to bottom when new content arrives.
-        // Use childrenArray.length (stable item count) rather than Yoga
-        // height (which fluctuates on viewport resize — e.g. IME composition)
-        // to decide whether content actually grew.
-        const contentGrew = childrenArray.length > lastContentCountRef.current;
+        // The ScrollBox typically wraps a single child (the history
+        // container), so childrenArray.length is stable at 1. Content
+        // growth is detected via Yoga height increase instead.
+        const contentGrew =
+          childrenArray.length > lastContentCountRef.current ||
+          newHeight > prevHeight;
         lastContentCountRef.current = childrenArray.length;
 
         if (isSticky() && contentGrew && prevHeight > 0) {
