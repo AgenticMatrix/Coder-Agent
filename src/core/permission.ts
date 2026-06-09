@@ -3,7 +3,7 @@
  *
  * In AUTO mode everything is auto-approved.
  * In PLAN mode, only SAFE operations are approved; everything else is denied.
- * In ASK mode, SAFE operations are approved; everything else requires user confirmation.
+ * In ASK mode, ALL operations require user confirmation.
  */
 
 import { PermissionMode, RiskLevel, type ToolDefinition } from './types.js';
@@ -53,12 +53,9 @@ export class PermissionEngine {
       }
       return { allowed: false, behavior: 'deny', reason: `Plan mode: ${permission.toolName} requires approval` };
     }
-    // ASK mode: approve safe, ask for everything else
+    // ASK mode: require confirmation for ALL operations
     if (this.mode === PermissionMode.ASK) {
-      if (permission.riskLevel === RiskLevel.SAFE) {
-        return { allowed: true, behavior: 'approve' };
-      }
-      return { allowed: false, behavior: 'ask_user', reason: `Ask mode: ${permission.toolName} requires approval`, prompt: `Allow ${permission.toolName}?` };
+      return { allowed: false, behavior: 'ask_user', prompt: `Allow ${permission.toolName}?` };
     }
     return { allowed: true, behavior: 'approve' };
   }
