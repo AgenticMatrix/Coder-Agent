@@ -18,9 +18,19 @@ import type {
   ToolResultBlock,
   ChatAction,
   ApprovalRequest,
+  BlockDeltaType,
 } from '../../types.js';
 import { nextMessageId } from './useChatReducer.js';
 import { setPendingApproval, getPendingApproval } from './approval-store.js';
+
+/** Throttle interval for batched delta dispatches (ms). */
+const DELTA_FLUSH_INTERVAL = 60;
+
+interface PendingDelta {
+  messageId: number;
+  deltaType: BlockDeltaType;
+  text: string;
+}
 
 // ---------------------------------------------------------------------------
 // Block mapping: core ContentBlock → TUI ContentBlock
@@ -111,6 +121,28 @@ export function useAgentBridge({ engine, dispatch }: AgentBridgeDeps) {
   // Map tool_use_id → toolName for identifying read results
   const toolNameMapRef = useRef<Map<string, string>>(new Map());
 
+  // ── Delta throttling: batch APPEND_BLOCK_DELTA dispatches to reduce
+  //    re-renders during streaming so terminal text selection isn't disrupted.
+  const pendingDeltasRef = useRef<PendingDelta[]>([]);
+  const flushTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const flushDeltas = useCallback(() => {
+    const deltas = pendingDeltasRef.current;
+    pendingDeltasRef.current = [];
+    if (flushTimerRef.current !== null) {
+      clearTimeout(flushTimerRef.current);
+      flushTimerRef.current = null;
+    }
+    for (const d of deltas) {
+      dispatch({ type: 'APPEND_BLOCK_DELTA', messageId: d.messageId, deltaType: d.deltaType, text: d.text });
+    }
+  }, [dispatch]);
+
+  const scheduleFlush = useCallback(() => {
+    if (flushTimerRef.current !== null) return;
+    flushTimerRef.current = setTimeout(flushDeltas, DELTA_FLUSH_INTERVAL);
+  }, [flushDeltas]);
+
   /**
    * Run a single agent turn: user input → QueryEngine → dispatch → React render.
    */
@@ -174,24 +206,28 @@ export function useAgentBridge({ engine, dispatch }: AgentBridgeDeps) {
                     if (!currentAssistantId) break;
                     const delta = ev.delta as Record<string, unknown> | undefined;
                     if (!delta) break;
-                    if (delta.text) {
-                      dispatch({ type: 'APPEND_BLOCK_DELTA', messageId: currentAssistantId, deltaType: 'text', text: delta.text as string });
-                    } else if (delta.thinking) {
-                      dispatch({ type: 'APPEND_BLOCK_DELTA', messageId: currentAssistantId, deltaType: 'thinking', text: delta.thinking as string });
-                    } else if (delta.partial_json) {
-                      dispatch({ type: 'APPEND_BLOCK_DELTA', messageId: currentAssistantId, deltaType: 'json', text: delta.partial_json as string });
+                    let deltaType: BlockDeltaType | null = null;
+                    let text = '';
+                    if (delta.text) { deltaType = 'text'; text = delta.text as string; }
+                    else if (delta.thinking) { deltaType = 'thinking'; text = delta.thinking as string; }
+                    else if (delta.partial_json) { deltaType = 'json'; text = delta.partial_json as string; }
+                    if (deltaType) {
+                      pendingDeltasRef.current.push({ messageId: currentAssistantId, deltaType, text });
+                      scheduleFlush();
                     }
                     break;
                   }
 
                   case 'content_block_stop':
                     if (currentAssistantId) {
+                      flushDeltas();
                       dispatch({ type: 'STOP_BLOCK', messageId: currentAssistantId });
                     }
                     break;
 
                   case 'message_stop':
                     if (currentAssistantId) {
+                      flushDeltas();
                       dispatch({ type: 'FINISH_ASSISTANT_RESPONSE', id: currentAssistantId });
                       currentAssistantId = null;
                     }
@@ -319,15 +355,16 @@ export function useAgentBridge({ engine, dispatch }: AgentBridgeDeps) {
 
             // ── Done event ───────────────────────────────────────
             case 'done':
-              // Turn complete — nothing to dispatch
+              flushDeltas();
               break;
           }
         }
       } catch (err) {
+        flushDeltas();
         dispatch({ type: 'SET_ERROR', error: (err as Error).message });
       }
     },
-    [engine, dispatch],
+    [engine, dispatch, flushDeltas, scheduleFlush],
   );
 
   return { runAgentTurn };
