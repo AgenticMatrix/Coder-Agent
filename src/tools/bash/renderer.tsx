@@ -1,6 +1,7 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React from 'react';
 import { Box, Text } from 'ink';
 import { OutputLine } from '../shared/OutputLine.js';
+import { useToolTimer } from '../shared/useToolTimer.js';
 import type { ToolUseRendererProps } from '../types.js';
 
 const MAX_DISPLAY_CHARS = 60;
@@ -54,30 +55,8 @@ export function BashRenderer(props: ToolUseRendererProps): React.ReactNode {
   const hasCommand = !!command;
   const result = props.result;
 
-  // Timer starts only when BOTH executing AND command is available.
   const isActive = isExecuting && hasCommand;
-
-  const [tick, setTick] = useState(0);
-
-  // Reset tick when timer becomes active
-  useEffect(() => {
-    if (isActive) setTick(0);
-  }, [isActive]);
-
-  // Continuous interval — same pattern as StatusBar
-  const isActiveRef = useRef(isActive);
-  isActiveRef.current = isActive;
-  useEffect(() => {
-    const id = setInterval(() => {
-      if (isActiveRef.current) {
-        setTick((t) => t + 1);
-      }
-    }, 100);
-    return () => clearInterval(id);
-  }, []);
-
-  const elapsedSecs = (tick * 0.1).toFixed(1);
-  const blinkOn = Math.floor(tick / 5) % 2 === 0;
+  const { elapsedSecs, blinkOn } = useToolTimer(isActive);
 
   const indicator = isDone ? '●' : blinkOn ? '●' : '○';
   const indicatorColor = isDone ? 'green' : 'yellow';
@@ -123,7 +102,7 @@ export function BashRenderer(props: ToolUseRendererProps): React.ReactNode {
           {isExecuting ? (
             <Text dimColor>  running  {elapsedSecs}s</Text>
           ) : isDone ? (
-            <Text dimColor>  Execution consumed {elapsedSecs}s</Text>
+            <Text dimColor>  Execution consumed {props.duration ? (props.duration / 1000).toFixed(1) : elapsedSecs}s</Text>
           ) : null}
 
           {/* Inline result content */}

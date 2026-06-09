@@ -1,6 +1,7 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React from 'react';
 import { Box, Text } from 'ink';
 import { OutputLine } from '../shared/OutputLine.js';
+import { useToolTimer } from '../shared/useToolTimer.js';
 import type { ToolUseRendererProps } from '../types.js';
 
 const MAX_DISPLAY_CHARS = 120;
@@ -21,26 +22,7 @@ export function ReadRenderer(props: ToolUseRendererProps): React.ReactNode {
   const result = props.result;
 
   const isActive = isExecuting && hasPath;
-
-  const [tick, setTick] = useState(0);
-
-  useEffect(() => {
-    if (isActive) setTick(0);
-  }, [isActive]);
-
-  const isActiveRef = useRef(isActive);
-  isActiveRef.current = isActive;
-  useEffect(() => {
-    const id = setInterval(() => {
-      if (isActiveRef.current) {
-        setTick((t) => t + 1);
-      }
-    }, 100);
-    return () => clearInterval(id);
-  }, []);
-
-  const elapsedSecs = (tick * 0.1).toFixed(1);
-  const blinkOn = Math.floor(tick / 5) % 2 === 0;
+  const { elapsedSecs, blinkOn } = useToolTimer(isActive);
 
   const indicator = isDone ? '●' : blinkOn ? '●' : '○';
   const indicatorColor = isDone ? 'green' : 'yellow';
@@ -67,7 +49,7 @@ export function ReadRenderer(props: ToolUseRendererProps): React.ReactNode {
           {isExecuting ? (
             <Text dimColor>  Reading  {elapsedSecs}s</Text>
           ) : isDone ? (
-            <Text dimColor>  Reading consumed {elapsedSecs}s</Text>
+            <Text dimColor>  Reading consumed {props.duration ? (props.duration / 1000).toFixed(1) : elapsedSecs}s</Text>
           ) : null}
           {hasResult ? (
             <Box flexDirection="column" paddingLeft={2}>

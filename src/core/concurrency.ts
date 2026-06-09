@@ -74,17 +74,20 @@ export interface ConcurrentSlot {
  *
  * Each tool is executed in isolation — one failure does not cancel siblings.
  * Results are returned in the original batch order (indexed by position).
+ *
+ * The `onProgress` callback fires for every running/completed event so
+ * callers can yield real-time status updates during execution.
  */
 export async function executeConcurrentBatch(
   batch: ToolUseBlock[],
   maxConcurrency: number,
-  executeOne: (block: ToolUseBlock) => Promise<{ result: ToolResultBlock; progressEvents: ToolProgress[] }>,
+  executeOne: (block: ToolUseBlock) => Promise<ToolResultBlock>,
   signal: AbortSignal,
-): Promise<{ results: ToolResultBlock[]; allProgress: ToolProgress[] }> {
-  if (batch.length === 0) return { results: [], allProgress: [] };
+  onProgress?: (pe: ToolProgress) => void,
+): Promise<ToolResultBlock[]> {
+  if (batch.length === 0) return [];
 
   const results: ToolResultBlock[] = new Array(batch.length);
-  const allProgress: ToolProgress[] = [];
   let nextIndex = 0;
 
   // Wrap a single tool execution so we can track its index
@@ -96,13 +99,22 @@ export async function executeConcurrentBatch(
         content: 'Interrupted by user',
         is_error: true,
       };
+      onProgress?.({ toolName: block.name, toolUseId: block.id, status: 'completed', is_error: true, message: 'Interrupted' });
       return;
     }
 
     try {
-      const { result, progressEvents } = await executeOne(block);
+      const result = await executeOne(block);
       results[index] = result;
-      allProgress.push(...progressEvents);
+      onProgress?.({
+        toolName: block.name,
+        toolUseId: block.id,
+        status: 'completed',
+        is_error: result.is_error,
+        message: result.is_error
+          ? `Error: ${String(result.content)}`
+          : String(result.content).slice(0, 500),
+      });
     } catch (err) {
       results[index] = {
         type: 'tool_result',
@@ -110,6 +122,13 @@ export async function executeConcurrentBatch(
         content: err instanceof Error ? err.message : String(err),
         is_error: true,
       };
+      onProgress?.({
+        toolName: block.name,
+        toolUseId: block.id,
+        status: 'completed',
+        is_error: true,
+        message: `Error: ${err instanceof Error ? err.message : String(err)}`,
+      });
     }
   }
 
@@ -132,5 +151,5 @@ export async function executeConcurrentBatch(
     await Promise.race(running);
   }
 
-  return { results, allProgress };
+  return results;
 }

@@ -1,18 +1,12 @@
 import { Box, Text } from 'ink';
 import type { ToolUseRendererProps } from '../types.js';
+import { useToolTimer } from '../shared/useToolTimer.js';
 
 const STATE_ICON: Record<string, string> = {
   pending: '⬜',
-  executing: '⏳',
-  done: '✅',
+  executing: '●',
+  done: '●',
   error: '❌',
-};
-
-const STATE_LABEL: Record<string, string> = {
-  pending: 'pending',
-  executing: 'running…',
-  done: 'done',
-  error: 'error',
 };
 
 const RISK_COLOR: Record<string, string> = {
@@ -68,8 +62,15 @@ export function BaseToolRenderer({
 }: ToolUseRendererProps) {
   const borderColor = riskLevel ? RISK_COLOR[riskLevel] : 'grey';
   const icon = TOOL_ICONS[toolName] ?? TOOL_ICONS.default;
-  const statusIcon = STATE_ICON[state];
-  const statusLabel = STATE_LABEL[state];
+  const isExecuting = state === 'executing';
+  const isDone = state === 'done';
+
+  const { elapsedSecs, blinkOn } = useToolTimer(isExecuting);
+
+  const statusIcon = isExecuting
+    ? (blinkOn ? '●' : '○')
+    : STATE_ICON[state];
+  const statusColor = isExecuting ? 'yellow' : isDone ? 'green' : state === 'error' ? 'red' : 'grey';
 
   return (
     <Box
@@ -80,22 +81,27 @@ export function BaseToolRenderer({
       <Box flexDirection="row" justifyContent="space-between">
         <Box marginRight={1}>
           <Text>
-            <Text color={borderColor}>{statusIcon} </Text>
+            <Text color={statusColor}>{statusIcon} </Text>
             <Text bold color={borderColor}>
               {icon} {toolName}
             </Text>
             {paramSummary ? (
               <Text dimColor> · {paramSummary}</Text>
             ) : null}
-            {state === 'executing' ? (
-              <Text dimColor color="yellow"> ({statusLabel})</Text>
+            {isExecuting ? (
+              <Text dimColor color="yellow"> running {elapsedSecs}s</Text>
+            ) : null}
+            {state === 'pending' ? (
+              <Text dimColor> (pending)</Text>
             ) : null}
           </Text>
         </Box>
 
         <Box>
-          {duration !== undefined && state === 'done' ? (
+          {duration !== undefined && isDone ? (
             <Text dimColor>⏱ {formatDuration(duration)}</Text>
+          ) : isDone ? (
+            <Text dimColor>{elapsedSecs}s</Text>
           ) : null}
           {permissionState === 'denied' ? (
             <Text color="red"> ⛔ denied</Text>
