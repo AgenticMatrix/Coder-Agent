@@ -3,15 +3,18 @@ import { Box, Text, Static } from 'ink';
 
 import type { QueryEngine } from '../../core/query-engine.js';
 import type { AppConfig, Message } from '../../types.js';
+import { PermissionMode } from '../../core/types.js';
 import { HeaderLogo } from './HeaderLogo.js';
 import { MessageBubble } from './MessageBubble.js';
 import { InputBox } from './InputBox.js';
 import { StatusBar } from './StatusBar.js';
+import { ApprovalPrompt } from './ApprovalPrompt.js';
 import { useChatReducer } from '../hooks/useChatReducer.js';
 import { useAgentBridge } from '../hooks/useAgentBridge.js';
 import { useInputHandler } from '../hooks/useInputHandler.js';
 import { useTokenStats } from '../hooks/useTokenStats.js';
 import { createSlashHandler } from '../../commands/index.js';
+import { getPendingApproval } from '../hooks/approval-store.js';
 
 interface AppProps {
   config: AppConfig;
@@ -59,6 +62,7 @@ export function App({ config, engine }: AppProps) {
     messages: state.messages,
     dispatch,
     onSend: runAgentTurn,
+    blocked: state.approvalReq !== null,
     onSlashCommand: createSlashHandler({
       dispatch,
       send: runAgentTurn,
@@ -70,6 +74,24 @@ export function App({ config, engine }: AppProps) {
       },
     }),
   });
+
+  const handleApprovalChoice = (choice: string) => {
+    const pending = getPendingApproval();
+    if (!pending) return;
+
+    if (choice === 'deny') {
+      pending.deferred.resolve(false);
+    } else {
+      // 'once', 'session', 'always' all approve the tool
+      pending.deferred.resolve(true);
+      // For session / always: switch to AUTO mode so subsequent
+      // tool calls in this session don't prompt again.
+      if (choice === 'session' || choice === 'always') {
+        engine.setPermissionMode(PermissionMode.AUTO);
+        dispatch({ type: 'SET_MODE', mode: 'auto' });
+      }
+    }
+  };
 
   const stats = useTokenStats(state.messages);
 
@@ -110,6 +132,15 @@ export function App({ config, engine }: AppProps) {
         {state.isStreaming && (
           <Box marginTop={1}>
             <Text color="yellow" dimColor>● Generating...</Text>
+          </Box>
+        )}
+
+        {state.approvalReq && (
+          <Box flexDirection="column" flexShrink={0} paddingX={1} paddingY={1}>
+            <ApprovalPrompt
+              req={state.approvalReq}
+              onChoice={handleApprovalChoice}
+            />
           </Box>
         )}
       </Box>

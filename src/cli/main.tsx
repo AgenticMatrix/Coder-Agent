@@ -25,6 +25,7 @@ import { ToolRegistry } from '../core/tool-registry.js';
 import { SessionManager } from '../core/session.js';
 import { QueryEngine } from '../core/query-engine.js';
 import { plugins } from '../tools/registry.js';
+import { RiskLevel, PermissionMode } from '../core/types.js';
 import type { ToolDefinition, ToolContext, ToolExecutionResult, QueryMessage, StreamEvent } from '../core/types.js';
 
 // ---------------------------------------------------------------------------
@@ -90,11 +91,20 @@ function buildToolRegistry(): ToolRegistry {
 
   for (const plugin of plugins) {
     const inputSchema = (plugin.schema as unknown as Record<string, unknown>).input_schema as Record<string, unknown>;
+    const meta = (plugin.schema as unknown as Record<string, unknown>)._meta as { riskLevel?: string } | undefined;
+
+    const riskLevelStr = meta?.riskLevel as string | undefined;
+    const riskLevel: RiskLevel | undefined =
+      riskLevelStr === 'safe' ? RiskLevel.SAFE :
+      riskLevelStr === 'destructive' ? RiskLevel.DESTRUCTIVE :
+      riskLevelStr === 'mutation' ? RiskLevel.MUTATION :
+      RiskLevel.MUTATION;
 
     const definition: ToolDefinition = {
       name: plugin.name,
       description: plugin.schema.description ?? plugin.name,
       input_schema: inputSchema,
+      riskLevel,
     };
 
     registry.register(definition, async (
@@ -148,6 +158,9 @@ async function runPrintMode(queryText: string): Promise<void> {
   });
 
   await engine.init();
+
+  // Print mode has no TUI to show approval prompts — run in AUTO.
+  engine.setPermissionMode(PermissionMode.AUTO);
 
   let fullText = '';
 

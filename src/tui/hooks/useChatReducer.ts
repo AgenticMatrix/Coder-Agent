@@ -294,6 +294,12 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
     case 'CLEAR_CHAT':
       return { ...state, messages: [] };
 
+    case 'SHOW_APPROVAL':
+      return { ...state, approvalReq: action.req };
+
+    case 'HIDE_APPROVAL':
+      return { ...state, approvalReq: null };
+
     default:
       return state;
   }
@@ -310,6 +316,7 @@ export function createInitialState(model: string): ChatState {
     mode: 'auto',
     turns: [],
     currentTurnId: 0,
+    approvalReq: null,
   };
 }
 

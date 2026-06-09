@@ -17,8 +17,10 @@ import type {
   ToolUseBlock,
   ToolResultBlock,
   ChatAction,
+  ApprovalRequest,
 } from '../../types.js';
 import { nextMessageId } from './useChatReducer.js';
+import { setPendingApproval, getPendingApproval } from './approval-store.js';
 
 // ---------------------------------------------------------------------------
 // Block mapping: core ContentBlock → TUI ContentBlock
@@ -266,9 +268,32 @@ export function useAgentBridge({ engine, dispatch }: AgentBridgeDeps) {
 
             // ── Permission required ──────────────────────────────
             case 'permission_required': {
-              // Auto-approve in AUTO mode; the PermissionEngine handles plan/ask modes
               if (event.deferred) {
-                event.deferred.resolve(true);
+                const deferred = event.deferred;
+                const approvalReq: ApprovalRequest = {
+                  toolName: deferred.toolName,
+                  command: deferred.command,
+                  description: deferred.description,
+                  toolUseId: deferred.toolUseId,
+                };
+
+                setPendingApproval({
+                  toolName: deferred.toolName,
+                  command: deferred.command,
+                  description: deferred.description,
+                  toolUseId: deferred.toolUseId,
+                  deferred,
+                });
+
+                dispatch({ type: 'SHOW_APPROVAL', req: approvalReq });
+
+                // Await user choice — the ApprovalPrompt component
+                // calls deferred.resolve(true/false) when the user
+                // picks an option.
+                await deferred.promise;
+
+                dispatch({ type: 'HIDE_APPROVAL' });
+                setPendingApproval(null);
               }
               break;
             }

@@ -22,7 +22,7 @@ export interface PermissionResult {
 }
 
 export class PermissionEngine {
-  private mode: PermissionMode = PermissionMode.AUTO;
+  private mode: PermissionMode = PermissionMode.ASK;
   private cwd: string;
 
   constructor(cwd: string) {

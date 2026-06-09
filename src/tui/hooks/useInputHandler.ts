@@ -9,6 +9,8 @@ export interface InputHandlerDeps {
   messages: Message[];
   dispatch: React.Dispatch<ChatAction>;
   onSend: (text: string) => void;
+  /** When true, input is suppressed (e.g. during approval prompt). */
+  blocked?: boolean;
   /** Optional slash command handler. Returns true if the command was handled. */
   onSlashCommand?: (input: string) => boolean;
 }
@@ -32,9 +34,14 @@ export function useInputHandler({
   dispatch,
   onSend,
   onSlashCommand,
+  blocked,
 }: InputHandlerDeps) {
   useInput(
     (input, key) => {
+      // When an approval overlay is active, suppress normal input.
+      // The ApprovalPrompt component handles its own input.
+      if (blocked) return;
+
       if (key.escape) {
         dispatch({ type: 'SET_INPUT', text: '' });
         return;

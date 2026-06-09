@@ -155,6 +155,15 @@ export interface AppConfig {
   maxTokens?: number;
 }
 
+// ── Approval request ─────────────────────────────────────────────────
+
+export interface ApprovalRequest {
+  toolName: string;
+  command: string;
+  description: string;
+  toolUseId: string;
+}
+
 // ── Chat state ──────────────────────────────────────────────────────
 
 export type AgentMode = 'plan' | 'ask' | 'auto';
@@ -172,6 +181,8 @@ export interface ChatState {
   turns: TurnSummary[];
   /** Monotonically increasing turn counter. */
   currentTurnId: number;
+  /** Pending approval request — shown as a floating prompt overlay. */
+  approvalReq: ApprovalRequest | null;
 }
 
 // ── Chat actions ────────────────────────────────────────────────────
@@ -202,7 +213,10 @@ export type ChatAction =
   | { type: 'SET_MODE'; mode: AgentMode }
   | { type: 'SET_ERROR'; error: string }
   | { type: 'CLEAR_ERROR' }
-  | { type: 'CLEAR_CHAT' };
+  | { type: 'CLEAR_CHAT' }
+  // Permission / approval
+  | { type: 'SHOW_APPROVAL'; req: ApprovalRequest }
+  | { type: 'HIDE_APPROVAL' };
 
 // ── Streaming callbacks (API client → App) ──────────────────────────
 
