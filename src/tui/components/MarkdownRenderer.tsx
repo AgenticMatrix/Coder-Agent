@@ -176,7 +176,7 @@ function displayWidth(str: string): number {
     // Wide characters (terminal renders as 2 columns)
     if (
       (cp >= 0x1100 && cp <= 0x115F) ||  // Hangul Jamo
-      (cp >= 0x2329 && cp <= 0x232A) ||  // Misc Technical
+      (cp >= 0x231A && cp <= 0x23FF) ||  // Misc Technical (⌚⌛⏳⏰ etc.)
       (cp >= 0x2600 && cp <= 0x27BF) ||  // Misc Symbols, Dingbats (emoji ✅✔️❌⭐ etc.)
       (cp >= 0x2E80 && cp <= 0xA4CF) ||  // CJK Radicals → Yi
       cp === 0xA960 || cp === 0xA961 ||   // Hangul Jamo Extended
@@ -528,7 +528,7 @@ function BlockElement({ block }: { block: Block }) {
       const naturalTotal = naturalInnerWidths.reduce((a, b) => a + b, 0) + colCount + 1;
 
       const termWidth = process.stdout.columns ?? 80;
-      const maxWidth = Math.max(40, termWidth - 2);
+      const maxWidth = Math.max(20, termWidth - 4);
 
       // Scale down if the table is wider than the terminal
       let colWidths = naturalWidths;
@@ -536,9 +536,24 @@ function BlockElement({ block }: { block: Block }) {
         const borderOverhead = colCount * 3 + 1;
         const available = maxWidth - borderOverhead;
         const totalNatural = naturalWidths.reduce((a, b) => a + b, 0);
+        // Shrink min column width when there are too many columns to fit at 3
+        const minColWidth = Math.min(3, Math.max(2, Math.floor(available / colCount)));
         colWidths = naturalWidths.map((w) =>
-          Math.max(3, Math.floor((w / totalNatural) * available)),
+          Math.max(minColWidth, Math.floor((w / totalNatural) * available)),
         );
+        // Correct overflow caused by Math.max clamping small columns up to minColWidth
+        let allocated = colWidths.reduce((a, b) => a + b, 0);
+        if (allocated > available) {
+          const byWidth = colWidths
+            .map((w, i) => ({ w, i }))
+            .sort((a, b) => b.w - a.w);
+          for (const item of byWidth) {
+            if (allocated <= available) break;
+            const reduce = Math.min(item.w - minColWidth, allocated - available);
+            colWidths[item.i] -= reduce;
+            allocated -= reduce;
+          }
+        }
       }
 
       const innerWidths = colWidths.map((w) => w + pad * 2);
