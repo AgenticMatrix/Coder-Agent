@@ -15,6 +15,9 @@ const AGENT_LABELS: Record<string, string> = {
 };
 
 export const AgentSpawnRenderer: ToolUseRenderer = (props) => {
+  // Don't render a placeholder while the LLM is still streaming the input.
+  if (props.state === 'pending') return null;
+
   const prompt = props.input.prompt as string ?? '';
   const agentType = props.input.agent_type as string ?? 'general-purpose';
   const icon = AGENT_ICONS[agentType] ?? '🤖';
