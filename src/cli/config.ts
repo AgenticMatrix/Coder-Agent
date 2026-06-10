@@ -98,31 +98,7 @@ function resolveModel(settings: CoderSettings): {
     };
   };
 
-  // 1. CODER_MODEL env var
-  const coderModel = process.env.CODER_MODEL;
-  if (coderModel) {
-    if (settings.model_list) {
-      const { providerName, modelName } = parseDefault(coderModel);
-      const entry = settings.model_list.find(m => m.provider === providerName);
-      if (entry && entry.model.length > 0) {
-        return resolveFromEntry(entry, modelName);
-      }
-      for (const entry of settings.model_list) {
-        const matched = entry.model.find(m => m === coderModel);
-        if (matched) {
-          return resolveFromEntry(entry, matched);
-        }
-      }
-    }
-    return {
-      model: coderModel,
-      baseUrl: '',
-      apiKey: '',
-      provider: inferProvider(coderModel),
-    };
-  }
-
-  // 2. default_model from settings
+  // 1. default_model from settings ("provider/model-name" format)
   const defaultName = settings.default_model;
   if (defaultName && settings.model_list) {
     const { providerName, modelName } = parseDefault(defaultName);
@@ -132,7 +108,7 @@ function resolveModel(settings: CoderSettings): {
     }
   }
 
-  // 3. First entry in model_list
+  // 2. First entry in model_list
   if (settings.model_list && settings.model_list.length > 0) {
     const entry = settings.model_list[0]!;
     if (entry.model.length > 0) {
@@ -140,14 +116,9 @@ function resolveModel(settings: CoderSettings): {
     }
   }
 
-  // 4. Legacy env fallback
-  const env = settings.env ?? {};
-  return {
-    model: env.CODER_MODEL ?? 'claude-sonnet-4-6',
-    baseUrl: env.CODER_BASE_URL ?? '',
-    apiKey: env.CODER_AUTH_TOKEN ?? '',
-    provider: 'anthropic',
-  };
+  throw new Error(
+    'No model configured. Add model_list to ~/.coder/settings.json.',
+  );
 }
 
 // ---------------------------------------------------------------------------
@@ -157,7 +128,11 @@ function resolveModel(settings: CoderSettings): {
 /**
  * Load AI model configuration from ~/.coder/settings.json.
  *
- * Supports KodeAgent-compatible format:
+ * Resolution priority:
+ *   1. default_model — "provider/model-name" format, looked up in model_list
+ *   2. First entry in model_list
+ *
+ * Settings format:
  * {
  *   "model_list": [
  *     { "model": ["deepseek-v4-pro"], "provider": "deepseek",
@@ -165,52 +140,21 @@ function resolveModel(settings: CoderSettings): {
  *   ],
  *   "default_model": "deepseek/deepseek-v4-pro"
  * }
- *
- * Also supports legacy format:
- * {
- *   "env": {
- *     "CODER_BASE_URL": "...",
- *     "CODER_AUTH_TOKEN": "...",
- *     "CODER_MODEL": "..."
- *   }
- * }
  */
 export function loadConfig(): AppConfig {
   const settings = loadSettings();
 
   const resolved = resolveModel(settings);
 
-  // Env vars override file config
-  const apiKey =
-    process.env.CODER_AUTH_TOKEN ??
-    resolved.apiKey ??
-    '';
-
-  const baseUrl =
-    process.env.CODER_BASE_URL ??
-    resolved.baseUrl ??
-    '';
-
-  const model =
-    process.env.CODER_MODEL ??
-    resolved.model ??
-    '';
-
-  const proxy =
-    process.env.CODER_PROXY ??
-    resolved.proxy;
-
-  const maxTokens = (() => {
-    if (process.env.CODER_MAX_TOKENS) {
-      const n = parseInt(process.env.CODER_MAX_TOKENS, 10);
-      if (!isNaN(n)) return n;
-    }
-    return resolved.maxTokens ?? settings.max_tokens;
-  })();
+  const model = resolved.model;
+  const apiKey = resolved.apiKey;
+  const baseUrl = resolved.baseUrl;
+  const proxy = resolved.proxy;
+  const maxTokens = resolved.maxTokens ?? settings.max_tokens;
 
   if (!model) {
     throw new Error(
-      'No model configured. Set CODER_MODEL in ~/.coder/settings.json (model_list) or env.',
+      'No model configured. Set default_model in ~/.coder/settings.json.',
     );
   }
 
