@@ -304,10 +304,10 @@ export function MessageBubble({ message, contentExpanded }: MessageBubbleProps) 
                       <Box paddingLeft={2} flexDirection="column">
                         <Text dimColor color="grey">{displayText}</Text>
                         {collapsed ? (
-                          <Text dimColor color="grey">{'... (Ctrl+O to toggle)'}</Text>
+                          <Text dimColor color="grey">{`... ${thinkingLines.length - 2} more lines (Ctrl+D to toggle)`}</Text>
                         ) : null}
                         {tooLong && message.thinkingExpanded ? (
-                          <Text dimColor color="grey">{'(Ctrl+O to toggle)'}</Text>
+                          <Text dimColor color="grey">{'(Ctrl+D to toggle)'}</Text>
                         ) : null}
                       </Box>
                     </Box>

@@ -57,7 +57,7 @@ export function ReadRenderer(props: ToolUseRendererProps): React.ReactNode {
                 <OutputLine key={`out-${i}`} line={line} />
               ))}
               {tooLong ? (
-                <Text dimColor>... {hiddenCount} more lines</Text>
+                <Text dimColor>... {hiddenCount} more lines (Ctrl+D to detail)</Text>
               ) : null}
             </Box>
           ) : null}

@@ -31,7 +31,7 @@ export interface InputHandlerDeps {
  *   Enter       — send message
  *   Escape      — clear input
  *   Ctrl+E      — toggle expand / collapse tool blocks
-   Ctrl+O      — toggle expand / collapse block content (thinking, etc.)
+   Ctrl+D      — toggle expand / collapse block content (thinking, etc.)
  *   ← → Home End — cursor movement
  *   Backspace/Del — deletion
  *   Printable   — insert at cursor
@@ -68,8 +68,8 @@ export function useInputHandler({
         return;
       }
 
-      // Ctrl+O toggles expand / collapse of block content (thinking, etc.)
-      if (key.ctrl && input === 'o') {
+      // Ctrl+D toggles expand / collapse of block content (thinking, etc.)
+      if (key.ctrl && input === 'd') {
         dispatch({ type: 'TOGGLE_ALL_CONTENT' });
         return;
       }

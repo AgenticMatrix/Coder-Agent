@@ -120,7 +120,7 @@ export function BashRenderer(props: ToolUseRendererProps): React.ReactNode {
                 <OutputLine key={`out-${i}`} line={line} />
               ))}
               {tooLong ? (
-                <Text dimColor>... {hiddenCount} more lines</Text>
+                <Text dimColor>... {hiddenCount} more lines (Ctrl+D to detail)</Text>
               ) : null}
               {stderrLines.length > 0 ? (
                 <Box flexDirection="column" marginTop={stdoutLines.length > 0 ? 1 : 0}>

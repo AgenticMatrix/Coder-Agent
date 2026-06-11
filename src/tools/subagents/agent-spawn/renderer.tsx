@@ -126,7 +126,7 @@ export const AgentSpawnRenderer: ToolUseRenderer = (props) => {
       tooLong && React.createElement(
         Text,
         { dimColor: true },
-        `... ${resultLines.length - RESULT_COLLAPSE} more lines`,
+        `... ${resultLines.length - RESULT_COLLAPSE} more lines (Ctrl+D to detail)`,
       ),
     ),
     isDone && resultLines.length === 0 && React.createElement(Text, { color: 'green' }, '  Done'),

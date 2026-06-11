@@ -29,7 +29,7 @@ export function BaseToolResultRenderer({
       </Text>
       {tooLong && (
         <Text dimColor>
-          ... {lines.length - collapseThreshold} more lines
+          ... {lines.length - collapseThreshold} more lines (Ctrl+D to detail)
         </Text>
       )}
       {truncated && (

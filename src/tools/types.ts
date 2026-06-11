@@ -70,7 +70,7 @@ export interface ToolUseRendererProps {
     isError: boolean;
     metadata?: Record<string, unknown>;
   };
-  /** Global content expansion toggle (Ctrl+O). When true, show full output. */
+  /** Global content expansion toggle (Ctrl+D). When true, show full output. */
   contentExpanded?: boolean;
 }
 
@@ -85,7 +85,7 @@ export interface ToolResultRendererProps {
   toolName?: string;
   /** Tool-specific metadata from the executor (e.g. stderr, exitCode, filePath). */
   metadata?: Record<string, unknown>;
-  /** Global content expansion toggle (Ctrl+O). When true, show full output. */
+  /** Global content expansion toggle (Ctrl+D). When true, show full output. */
   contentExpanded?: boolean;
 }
 
