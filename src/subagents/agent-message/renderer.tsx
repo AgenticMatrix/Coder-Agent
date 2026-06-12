@@ -2,37 +2,21 @@ import React, { useState, useEffect } from 'react';
 import { Box, Text } from 'ink';
 import { ShellTimeDisplay, formatDuration } from '../../tools/shared/ShellTimeDisplay.js';
 import type { ToolUseRenderer } from '../../tools/types.js';
-import { getSubAgentRegistry } from './registry-ref.js';
-
-const AGENT_ICONS: Record<string, string> = {
-  explore: '🔍',
-  plan: '📋',
-  'general-purpose': '🔧',
-};
-
-const AGENT_LABELS: Record<string, string> = {
-  explore: 'Explore',
-  plan: 'Plan',
-  'general-purpose': 'General-purpose',
-};
+import { getSubAgentRegistry } from '../agent-spawn/registry-ref.js';
 
 const RESULT_COLLAPSE = 12;
-
 const SPINNER_FRAMES = ['◐', '◓', '◑', '◒'];
 
-export const AgentSpawnRenderer: ToolUseRenderer = (props) => {
-  const prompt = props.input.prompt as string ?? '';
-  const agentType = props.input.agent_type as string ?? 'general-purpose';
-  const icon = AGENT_ICONS[agentType] ?? '🤖';
-  const label = AGENT_LABELS[agentType] ?? agentType;
-  const summary = prompt.length > 80 ? prompt.slice(0, 77) + '...' : prompt;
+export const AgentMessageRenderer: ToolUseRenderer = (props) => {
+  const agentId = props.input.agent_id as string ?? '?';
+  const message = props.input.message as string ?? '';
+  const summary = message.length > 80 ? message.slice(0, 77) + '...' : message;
 
-  // Render a minimal placeholder while the LLM is still streaming input.
   if (props.state === 'pending') {
     return React.createElement(
       Box,
       { flexDirection: 'column', borderStyle: 'round', borderColor: 'grey', paddingX: 1, width: '90%' },
-      React.createElement(Text, { dimColor: true }, `${icon} ${label}: ${summary || '...'}`),
+      React.createElement(Text, { dimColor: true }, `💬 agent-message → ${agentId}: ${summary || '...'}`),
     );
   }
 
@@ -60,16 +44,15 @@ export const AgentSpawnRenderer: ToolUseRenderer = (props) => {
     if (!registry) return;
 
     const poll = () => {
-      const agents = registry.listByStatus('running');
-      const match = agents.find(a => a.prompt === prompt && a.agentType === agentType);
-      if (match) {
-        setLiveStats({ turnCount: match.turnCount, toolCount: match.toolCount });
+      const agent = registry.get(agentId);
+      if (agent && agent.status === 'running') {
+        setLiveStats({ turnCount: agent.turnCount, toolCount: agent.toolCount });
       }
     };
     poll();
     const timer = setInterval(poll, 500);
     return () => clearInterval(timer);
-  }, [isExecuting, prompt, agentType]);
+  }, [isExecuting, agentId]);
 
   // ── Spinner animation ──────────────────────────────────────
   const [spinnerIdx, setSpinnerIdx] = useState(0);
@@ -94,7 +77,7 @@ export const AgentSpawnRenderer: ToolUseRenderer = (props) => {
         `  ${liveStats.turnCount} LLM turns, ${liveStats.toolCount} tools used.`,
       );
     } else {
-      progressNode = React.createElement(Text, { color: 'yellow' }, '  Running...');
+      progressNode = React.createElement(Text, { color: 'yellow' }, '  Continuing conversation...');
     }
   }
 
@@ -103,7 +86,7 @@ export const AgentSpawnRenderer: ToolUseRenderer = (props) => {
     {
       flexDirection: 'column',
       borderStyle: 'round',
-      borderColor: isExecuting ? 'yellow' : props.state === 'error' ? 'red' : 'blue',
+      borderColor: isExecuting ? 'yellow' : props.state === 'error' ? 'red' : 'magenta',
       paddingX: 1,
       width: '90%',
     },
@@ -111,18 +94,24 @@ export const AgentSpawnRenderer: ToolUseRenderer = (props) => {
     React.createElement(
       Box,
       { flexDirection: 'row', justifyContent: 'space-between' },
-      React.createElement(Text, { bold: true, color: 'cyan' }, isExecuting ? `${SPINNER_FRAMES[spinnerIdx]} ${label}` : `${icon} ${label}`),
+      React.createElement(
+        Text,
+        { bold: true, color: 'cyan' },
+        isExecuting
+          ? `${SPINNER_FRAMES[spinnerIdx]} agent-message → ${agentId}`
+          : `💬 agent-message → ${agentId}`,
+      ),
       displayDuration !== undefined
         ? isExecuting
           ? React.createElement(Text, { dimColor: true }, `⏱ ${formatDuration(displayDuration)}`)
           : React.createElement(ShellTimeDisplay, { durationMs: displayDuration })
         : null,
     ),
-    // Prompt summary
+    // Message summary
     React.createElement(Text, { dimColor: true }, summary),
-    // Progress indicator (live turn/tool counts or Running...)
+    // Progress indicator
     progressNode,
-    // Done: show result content inside the same box
+    // Done: show result content
     isDone && resultLines.length > 0 && React.createElement(
       Box,
       { paddingLeft: 1, flexDirection: 'column', marginTop: 0 },
@@ -136,8 +125,6 @@ export const AgentSpawnRenderer: ToolUseRenderer = (props) => {
       ),
     ),
     isDone && resultLines.length === 0 && React.createElement(Text, { color: 'green' }, '  Done'),
-    // View transcript hint
-    isDone && React.createElement(Text, { dimColor: true }, '  Ctrl+T to view full transcript'),
     // Error
     props.state === 'error' && props.result?.isError &&
       React.createElement(Text, { color: 'red' }, `  Error: ${(props.result.content as string).slice(0, 100)}`),
